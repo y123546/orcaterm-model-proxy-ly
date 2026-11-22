@@ -31,8 +31,10 @@ const SESSION_COOKIE = "__Secure-ot_session";
 /** 登录页。 */
 const LOGIN_URL = "https://orcaterm.ai/terminal";
 
-/** 调试端口。选一个冷门端口，减少冲突。 */
-const DEBUG_PORT = 9333;
+/** 调试端口。选一个冷门端口，减少冲突。
+ *  注意：不能与 DSH 自身的 --remote-debugging-port 冲突（DSH 桌面端默认占 9333），
+ *  否则插件连上的其实是 DSH 的调试端口，会把 DSH 主窗口导航到 OrcaTerm 页面。 */
+const DEBUG_PORT = 9334;
 
 /** 浏览器候选路径（按优先级）。 */
 const BROWSER_CANDIDATES = [

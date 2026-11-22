@@ -35,6 +35,16 @@ const CHAT_PATH = "/assistant/chat?name=orcaterm&mode=0&csrfCode=&sseresume=true
 const MAX_OUTPUT_TOKENS = 8096;
 
 /**
+ * 每个模型对 DSH 声明的上下文窗口（token）。
+ *
+ * DSH 的 compaction-basic 用它算压缩阈值；插件原先没返回这个字段，
+ * 导致一换到 orcaterm 模型就报 MODEL_SWITCH_COMPACTION_FAILED
+ * （"no context capacity ... configure contextWindow on that adapter model"）。
+ * 100,000 token ≈ 本插件 contextTrimChars 的 200,000 字符（混合中英文 ~2 字符/token）。
+ */
+const MODEL_CONTEXT_WINDOW = 100000;
+
+/**
  * 指数退避的等待时长。
  *
  * @param {number} attempt 第几次尝试（从 0 开始）。
@@ -164,6 +174,9 @@ class OrcaTermAdapter extends LlmAdapter {
       id: usable,
       name: usableInfo ? usableInfo.name : found ? found.name : "OrcaTerm",
       defaultMaxTokens: MAX_OUTPUT_TOKENS,
+      // DSH 的自动压缩（compaction-basic）要求模型声明上下文窗口，否则切换模型时
+      // 直接报 "no context capacity ... configure contextWindow on that adapter model"。
+      context: { contextWindow: MODEL_CONTEXT_WINDOW },
     };
   }
 
