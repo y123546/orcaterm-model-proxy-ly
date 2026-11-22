@@ -1319,10 +1319,29 @@ window.__ModuleLoader__.load({
       const patch = (node) => {
         const modelId = node.getAttribute('data-model-id');
         const meta = modelId ? MODEL_META[modelId] : null;
-        if (!meta) return;
 
-        // 同一行可能被反复渲染，用标记避免重复追加
-        if (node.getAttribute(MARK) === '1') return;
+        // 宿主会复用同一个节点（模型选择器按钮）来显示不同模型，
+        // 所以 MARK 记录的是「上次装饰的是哪个 modelId」，不能只记 1。
+        const applied = node.getAttribute(MARK);
+
+        /** 清掉本插件加过的所有角标与布局类。 */
+        const strip = () => {
+          node.querySelectorAll('.ot-mtag').forEach((el) => el.remove());
+          node.classList.remove('ot-mlabel');
+          node.removeAttribute(MARK);
+        };
+
+        if (!meta) {
+          // 非本插件的模型：必须把残留角标撤掉，否则切到别家后「免费」还挂着
+          if (applied) strip();
+          return;
+        }
+
+        // 已为同一个模型装饰过 → 幂等跳过
+        if (applied === modelId) return;
+
+        // 换到另一个本插件的模型：先清旧角标，再按新模型补
+        if (applied) strip();
 
         // 确保是「名称 + 角标」的紧凑横向布局
         node.classList.add('ot-mlabel');
@@ -1340,7 +1359,7 @@ window.__ModuleLoader__.load({
           node.appendChild(tag);
         }
 
-        node.setAttribute(MARK, '1');
+        node.setAttribute(MARK, modelId);
       };
 
       /** 扫描整个文档。 */
