@@ -565,6 +565,9 @@ class OrcaTermAdapter extends LlmAdapter {
     let anyText = false;
     let anyReasoning = false;
     let sawTool = false;
+    // 用于向 DSH 上报 token 用量 —— 底部状态栏的 tok/s 与「上下文 N tok」靠它显示。
+    // 上游 ACP 信封不返回 usage，这里按字符数估算（混合中英文约 2 字符/token）。
+    let outputChars = 0;
     /** 首字（正文或思考）到达的时刻，用于统计首字延迟。 */
     let firstTokenAt = null;
 
@@ -663,6 +666,7 @@ class OrcaTermAdapter extends LlmAdapter {
               if (firstTokenAt === null) firstTokenAt = Date.now();
               anyReasoning = true;
               if (reasoningIndex < 0) reasoningIndex = nextIndex++;
+              outputChars += thought.length;
               yield { type: "reasoning-delta", index: reasoningIndex, text: thought };
             }
           }
@@ -679,6 +683,7 @@ class OrcaTermAdapter extends LlmAdapter {
           if (firstTokenAt === null) firstTokenAt = Date.now();
           anyText = true;
           if (textIndex < 0) textIndex = nextIndex++;
+          outputChars += out.text.length;
           yield { type: "text-delta", index: textIndex, text: out.text };
         } else if (out?.type === "tool") {
           sawTool = true;
@@ -776,6 +781,7 @@ class OrcaTermAdapter extends LlmAdapter {
             if (ans) {
               anyText = true;
               if (textIndex < 0) textIndex = nextIndex++;
+              outputChars += ans.length;
               yield { type: "text-delta", index: textIndex, text: ans };
             }
           }
@@ -806,6 +812,18 @@ class OrcaTermAdapter extends LlmAdapter {
         };
         return;
       }
+
+      // 先报用量，再收尾：DSH 的 tokenMeter 与底部状态栏靠这个 chunk 计算
+      // 「上下文 N tok / 缓存命中 / tok/s」。上游不返回真实 usage，按字符数估算。
+      yield {
+        type: "usage",
+        usage: {
+          inputTokens: Math.max(1, Math.ceil((trimInfo.afterChars || trimInfo.beforeChars || 0) / 2)),
+          outputTokens: Math.max(1, Math.ceil(outputChars / 2)),
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+        },
+      };
 
       yield {
         type: "finish",
