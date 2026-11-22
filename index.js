@@ -49,6 +49,16 @@ const MAX_OUTPUT_TOKENS = 8096;
 const MODEL_CONTEXT_WINDOW = 1048576;
 
 /**
+ * 是否向 DSH 上报估算的 token 用量。
+ *
+ * ⚠️ 默认关闭：2026-11-22 实测，开启后 DSH 对话页会把整轮正文渲染成空白
+ * （数据没丢，切「轨迹」页能看到完整回答）。疑似 usage chunk 与
+ * block-start/block-end 的组装契约冲突，待查清后再启用。
+ * 关闭的代价：底部状态栏不显示 tok/s 与「上下文 N tok」。
+ */
+const REPORT_USAGE = false;
+
+/**
  * 指数退避的等待时长。
  *
  * @param {number} attempt 第几次尝试（从 0 开始）。
@@ -819,15 +829,20 @@ class OrcaTermAdapter extends LlmAdapter {
 
       // 先报用量，再收尾：DSH 的 tokenMeter 与底部状态栏靠这个 chunk 计算
       // 「上下文 N tok / 缓存命中 / tok/s」。上游不返回真实 usage，按字符数估算。
-      yield {
-        type: "usage",
-        usage: {
-          inputTokens: Math.max(1, Math.ceil((trimInfo.afterChars || trimInfo.beforeChars || 0) / 2)),
-          outputTokens: Math.max(1, Math.ceil(outputChars / 2)),
-          cacheReadTokens: 0,
-          cacheWriteTokens: 0,
-        },
-      };
+      //
+      // ⚠️ 2026-11-22 实测：加上这段后，DSH 对话页会把整轮正文渲染成空白
+      // （数据仍在，切「轨迹」页可见完整回答）。已临时关闭，待查清块/usage 契约再启用。
+      if (REPORT_USAGE) {
+        yield {
+          type: "usage",
+          usage: {
+            inputTokens: Math.max(1, Math.ceil((trimInfo.afterChars || trimInfo.beforeChars || 0) / 2)),
+            outputTokens: Math.max(1, Math.ceil(outputChars / 2)),
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+          },
+        };
+      }
 
       yield {
         type: "finish",
