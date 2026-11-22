@@ -40,9 +40,13 @@ const MAX_OUTPUT_TOKENS = 8096;
  * DSH 的 compaction-basic 用它算压缩阈值；插件原先没返回这个字段，
  * 导致一换到 orcaterm 模型就报 MODEL_SWITCH_COMPACTION_FAILED
  * （"no context capacity ... configure contextWindow on that adapter model"）。
- * 100,000 token ≈ 本插件 contextTrimChars 的 200,000 字符（混合中英文 ~2 字符/token）。
+ *
+ * 取 1,048,576：OrcaTerm 这批模型的官方窗口都是 1M——
+ *   Kimi K3 1,048,576 / DeepSeek V4 系 1,000,000 / GLM-5.3 1,048,576 / Hunyuan 3 1M。
+ * 注意与 contextTrimChars（默认 200,000 字符）的区别：后者是插件发请求前的历史裁剪线，
+ * 调大窗口同时应把裁剪线一起调大，否则 DSH 不压缩、插件却静默丢最老对话。
  */
-const MODEL_CONTEXT_WINDOW = 100000;
+const MODEL_CONTEXT_WINDOW = 1048576;
 
 /**
  * 指数退避的等待时长。
