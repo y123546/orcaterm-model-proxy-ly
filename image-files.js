@@ -172,7 +172,15 @@ function takeNewImageBlocks(messages) {
  *   files 为可直接放进 input.files 的条目；skipped 记录被跳过的原因。
  */
 export async function collectImageFiles(messages, { attachmentsDir, model } = {}) {
-  const dir = attachmentsDir ?? join(homedir(), ".dsh", "attachments");
+  // 附件根目录必须跟着宿主的 DSH_HOME 走。
+  // 只拼 ~/.dsh/attachments 在两种情况下会全量 ENOENT：
+  //   1) DSH_HOME 指向别处（本项目就是 F:\dsh-home）；
+  //   2) ~/.dsh 是符号链接/junction 指向别处（本机指向 F:\Deepseek\data\dot-dsh）。
+  const dir =
+    attachmentsDir ??
+    (process.env.DSH_HOME
+      ? join(process.env.DSH_HOME, "attachments")
+      : join(homedir(), ".dsh", "attachments"));
   const files = [];
   const skipped = [];
   let totalBytes = 0;
